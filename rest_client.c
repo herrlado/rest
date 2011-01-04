@@ -450,35 +450,39 @@ static void curl_append_headers(CURL *curl,
         zend_hash_update(merged, "X-HTTP-Method-Override", sizeof("X-HTTP-Method-Override"), &xmethod, sizeof(zval*), NULL);
     }
     
-    while (zend_hash_get_current_data(merged, (void **)&value) == SUCCESS) {
-        char *key;
-        int   key_len;
-        
-        zend_hash_get_current_key_ex(merged, &key, &key_len, &idx, 0, NULL);
-        zend_hash_move_forward(merged);
-        
-        smart_str_appendl(&slist_headers, key, key_len - 1);
-        smart_str_appends(&slist_headers, ": ");
-        smart_str_appendl(&slist_headers, Z_STRVAL_PP(value), Z_STRLEN_PP(value));
-        
-        if (strcasecmp(key, "content-type") == 0) {
-            if (GET_PROP(this_ptr, "charset", charset)) {
-                smart_str_appends(&slist_headers, "; charset=");
-                smart_str_appendl(&slist_headers, Z_STRVAL_PP(charset), Z_STRLEN_PP(charset));
-                zval_ptr_dtor(charset);
+    if (zend_hash_num_elements(merged)) {
+        while (zend_hash_get_current_data(merged, (void **)&value) == SUCCESS) {
+            char *key;
+            int   key_len;
+            
+            zend_hash_get_current_key_ex(merged, &key, &key_len, &idx, 0, NULL);
+            zend_hash_move_forward(merged);
+            
+            smart_str_appendl(&slist_headers, key, key_len - 1);
+            smart_str_appends(&slist_headers, ": ");
+            smart_str_appendl(&slist_headers, Z_STRVAL_PP(value), Z_STRLEN_PP(value));
+            
+            if (strcasecmp(key, "content-type") == 0) {
+                if (GET_PROP(this_ptr, "charset", charset)) {
+                    smart_str_appends(&slist_headers, "; charset=");
+                    smart_str_appendl(&slist_headers, Z_STRVAL_PP(charset), Z_STRLEN_PP(charset));
+                    zval_ptr_dtor(charset);
+                }
             }
+            
+            smart_str_0(&slist_headers);
+            *slist = curl_slist_append(*slist, slist_headers.c);
+            
+            zval_ptr_dtor(value);
+            smart_str_free(&slist_headers);
         }
         
-        smart_str_0(&slist_headers);
-        *slist = curl_slist_append(*slist, slist_headers.c);
-        
-        zval_ptr_dtor(value);
-        smart_str_free(&slist_headers);
+        if (slist) {
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *slist);
+        }
     }
     
-    if (slist) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *slist);
-    }
+    zend_hash_destroy(merged);
 }
 
 static void curl_set_request_data(CURL *curl, char *key, HashTable *inst_args, HashTable *meth_args TSRMLS_DC)
@@ -740,8 +744,8 @@ static void fetch(zval *return_value,
         decode_response(return_value TSRMLS_CC);
     }
     
-    zval_ptr_dtor(&inst_args);
-    zval_ptr_dtor(&meth_args);
+    zend_hash_destroy(inst_args);
+    zend_hash_destroy(meth_args);
     curl_slist_free_all(slist);
     curl_easy_cleanup(curl);
     smart_str_free(&url);
