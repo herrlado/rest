@@ -1,0 +1,5 @@
+<?php
+
+define('YOUTUBE_API_KEY', 'YOUR_DEVELOPER_KEY');
+define('YOUTUBE_USER',    'YOUR_YOUTUBE_USER');
+define('YOUTUBE_PASS',    'YOUR_YOUTUBE_PASS');
