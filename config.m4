@@ -13,12 +13,16 @@ if test "$PHP_REST" != "no"; then
   CFLAGS="$CFLAGS -Wall -g"
 
   AC_MSG_CHECKING(for cURL in default path)
-  for i in /usr/local /usr; do
+  for i in /usr/local /usr /opt; do
     if test -r $i/include/curl/easy.h; then
       CURL_DIR=$i
       AC_MSG_RESULT(found in $i)
       break
     fi
   done
-
+  
+  if test -z "$CURL_DIR"; then
+    AC_MSG_ERROR(cURL not found!)
+  fi
+  
 fi
