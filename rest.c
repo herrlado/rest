@@ -5,7 +5,7 @@
  */
 
 /* True global resources - no need for thread safety here */
-static int le_rest;
+/* static int le_rest; */
 
 /* {{{ rest_functions[]
  *
@@ -138,12 +138,10 @@ PHP_MINIT_FUNCTION(rest)
 
 void rest_url_append_uri(char *uri, HashTable *args, smart_str *url, zend_bool encode TSRMLS_DC)
 {
-    zval **query;
     zval **token;
     char  *key;
     int    i; 
     int    start; 
-    int    end; 
     int    uri_len = strlen(uri); 
     int    encoded_len;
     

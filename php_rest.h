@@ -9,12 +9,16 @@
 #include "php_ini.h"
 #include "php_globals.h"
 #include "zend_API.h"
+#include "zend_exceptions.h"
 
+#include "ext/json/php_json.h"
+#include "ext/pcre/php_pcre.h"
 #include "ext/standard/info.h"
 #include "ext/standard/url.h"
 #include "ext/standard/php_string.h"
 #include "ext/standard/php_smart_str.h"
-#include "ext/pcre/php_pcre.h"
+#include "ext/standard/php_array.h"
+#include "ext/standard/php_http.h"
 
 extern zend_module_entry rest_module_entry;
 #define phpext_rest_ptr &rest_module_entry
@@ -116,14 +120,23 @@ PHP_METHOD(RestServer, handleQueryParam);
     zval_add_ref(&this_ptr); \
     *return_value_ptr = this_ptr;
 
+#define PROP(_obj, _name, _value) \
+    zend_hash_find(Z_OBJPROP_P(_obj), _name, strlen(_name) + 1, (void **)&_value)
+
 #define GET_PROP(_obj, _name, _value) \
-    zend_hash_find(Z_OBJPROP_P(_obj), _name, strlen(_name) + 1, (void **)&_value) == SUCCESS
+    PROP(_obj, _name, _value) == SUCCESS
+
+#define ARRVAL_PP(_arr, _name, _value) \
+    zend_hash_find(Z_ARRVAL_PP(_arr), _name, strlen(_name) + 1, (void **)&_value)
 
 #define GET_ARRVAL(_arr, _name, _value) \
-    zend_hash_find(Z_ARRVAL_PP(_arr), _name, strlen(_name) + 1, (void **)&_value) == SUCCESS
+    ARRVAL_PP(_arr, _name, _value) == SUCCESS
+
+#define HTVAL(_arr, _name, _value) \
+    zend_hash_find(_arr, _name, strlen(_name) + 1, (void **)&_value)
 
 #define GET_HTVAL(_arr, _name, _value) \
-    zend_hash_find(_arr, _name, strlen(_name) + 1, (void **)&_value) == SUCCESS
+    HTVAL(_arr, _name, _value) == SUCCESS
 
 /* 
   	Declare any global variables you may need between the BEGIN

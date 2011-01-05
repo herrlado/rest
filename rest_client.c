@@ -328,13 +328,7 @@ static void url_append_url(zval *this_ptr, smart_str *url TSRMLS_DC)
 {
     zval    **zurl;
     zval    **args;
-    zval    **uri = NULL;
     php_url  *u;
-    char     *path;
-    int       value_len;
-    int       encoded_len;
-    int       i;
-    int       start;
     
     if (GET_PROP(this_ptr, "url", zurl)) {
         u = php_url_parse_ex(Z_STRVAL_PP(zurl), Z_STRLEN_PP(zurl));
@@ -453,7 +447,7 @@ static void curl_append_headers(CURL *curl,
     if (zend_hash_num_elements(merged)) {
         while (zend_hash_get_current_data(merged, (void **)&value) == SUCCESS) {
             char *key;
-            int   key_len;
+            uint  key_len;
             
             zend_hash_get_current_key_ex(merged, &key, &key_len, &idx, 0, NULL);
             zend_hash_move_forward(merged);

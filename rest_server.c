@@ -68,8 +68,8 @@ REST_SERVER_METHOD(handleRequestUri)
     php_url  *url;
     char     *tmp;
     
-    GET_HTVAL(EG(active_symbol_table), "_SERVER", server);
-    GET_HTVAL(Z_ARRVAL_PP(server), "REQUEST_URI", value);
+    HTVAL(EG(active_symbol_table), "_SERVER", server);
+    HTVAL(Z_ARRVAL_PP(server), "REQUEST_URI", value);
     
     url = php_url_parse_ex(Z_STRVAL_PP(value), Z_STRLEN_PP(value));
     normalize_path(url->path, &path);
@@ -101,7 +101,7 @@ REST_SERVER_METHOD(handleQueryParam)
 		RETURN_FALSE;
 	}
     
-    GET_HTVAL(EG(active_symbol_table), "_GET", get);
+    HTVAL(EG(active_symbol_table), "_GET", get);
     
     if (GET_HTVAL(Z_ARRVAL_PP(get), param_name, tmp)) {
         normalize_path(Z_STRVAL_PP(tmp), &path);
@@ -263,7 +263,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     add_assoc_stringl(copy, "#expr", uri.c, uri.len, 1);
     smart_str_free(&uri);
     
-    GET_PROP(this_ptr, "routes", routes);
+    PROP(this_ptr, "routes", routes);
     zend_hash_next_index_insert(Z_ARRVAL_PP(routes), &copy, sizeof(zval *), NULL);
 }
 
@@ -273,8 +273,8 @@ static void resolve_request_method(char **method TSRMLS_DC)
     zval **req_method;
     smart_str resolved = {0};
     
-    GET_HTVAL(EG(active_symbol_table), "_SERVER", server);
-    GET_ARRVAL(server, "REQUEST_METHOD", req_method);
+    HTVAL(EG(active_symbol_table), "_SERVER", server);
+    ARRVAL_PP(server, "REQUEST_METHOD", req_method);
     
     smart_str_appends(&resolved, "#");
     
@@ -370,15 +370,15 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
     
     resolve_request_method(&method TSRMLS_CC);
     
-    GET_PROP(this_ptr, "routes", routes);
+    PROP(this_ptr, "routes", routes);
     
     for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(routes), &pos);
         zend_hash_has_more_elements_ex(Z_ARRVAL_PP(routes), &pos) == SUCCESS && !found;
         zend_hash_move_forward_ex(Z_ARRVAL_PP(routes), &pos)) {
         
         if (zend_hash_get_current_data_ex(Z_ARRVAL_PP(routes), (void**)&route, &pos) == SUCCESS) {
-            GET_ARRVAL(route, method, callback);
-            GET_ARRVAL(route, "#expr", expr);
+            ARRVAL_PP(route, method, callback);
+            ARRVAL_PP(route, "#expr", expr);
             
             if ((pce = pcre_get_compiled_regex_cache(Z_STRVAL_PP(expr), Z_STRLEN_PP(expr) TSRMLS_CC)) != NULL) {
                 MAKE_STD_ZVAL(result);
