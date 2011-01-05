@@ -395,6 +395,7 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
                     }
                     
                     found = 1;
+                    zval_dtor(ret_val);
                 }
             }
         }
