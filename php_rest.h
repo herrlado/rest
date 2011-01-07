@@ -126,6 +126,9 @@ PHP_METHOD(RestServer, handleQueryParam);
 #define GET_PROP(_obj, _name, _value) \
     PROP(_obj, _name, _value) == SUCCESS
 
+#define ARRVAL_P(_arr, _name, _value) \
+    zend_hash_find(Z_ARRVAL_P(_arr), _name, strlen(_name) + 1, (void **)&_value)
+
 #define ARRVAL_PP(_arr, _name, _value) \
     zend_hash_find(Z_ARRVAL_PP(_arr), _name, strlen(_name) + 1, (void **)&_value)
 

@@ -224,13 +224,23 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     zval       *copy;
     zval      **tmp;
     zval       *path;
+    zval      **callback;
+    char       *callback_name;
     smart_str   uri = {0};
     int         i;
     int         has_callback = 0;
     
     for (i = 0; i < 4; i++) {
-        if ((has_callback = zend_hash_exists(Z_ARRVAL_P(route), user_callback_keys[i], strlen(user_callback_keys[i]) + 1))) {
-            break;
+        if (GET_HTVAL(Z_ARRVAL_P(route), user_callback_keys[i], callback)) {
+            has_callback = 1;
+            
+            if (!zend_is_callable(*callback, 0, &callback_name TSRMLS_CC)) {
+                efree(callback_name);
+                handle_exception("Invalid callback", route);
+                return;
+            }
+            
+            efree(callback_name);
         }
     }
     
@@ -395,8 +405,11 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
                     }
                     
                     found = 1;
-                    zval_dtor(ret_val);
+                    zval_ptr_dtor(&ret_val);
                 }
+                
+                zval_ptr_dtor(&matches);
+                zval_ptr_dtor(&result);
             }
         }
     }
