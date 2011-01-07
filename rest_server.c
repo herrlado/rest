@@ -354,14 +354,22 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
         }
     }
     
+    fnargs[0] = &args;
+    
     if (Z_TYPE_P(callback) == IS_STRING) {
         convert_to_string(callback);
-        fnargs[0] = &args;
-        
         call_user_function_ex(EG(function_table), NULL, callback, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
+    } else if (Z_TYPE_P(callback) == IS_ARRAY) {
+        zval **object;
+        zval **method;
         
-        efree(args);
+        zend_hash_index_find(Z_ARRVAL_P(callback), 0, (void **) &object);
+        zend_hash_index_find(Z_ARRVAL_P(callback), 1, (void **) &method);
+        
+        call_user_function_ex(EG(function_table), object, *method, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
     }
+    
+    efree(args);
 }
 
 static void route(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
