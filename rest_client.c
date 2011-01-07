@@ -316,12 +316,12 @@ REST_CLIENT_METHOD(post)
 
 REST_CLIENT_METHOD(put)
 {
-    _fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, METHOD_PUT, NULL);
+    _fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, METHOD_POST, METHOD_PUT);
 }
 
 REST_CLIENT_METHOD(delete)
 {
-    _fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, METHOD_DELETE, NULL);
+    _fetch(INTERNAL_FUNCTION_PARAM_PASSTHRU, METHOD_POST, METHOD_DELETE);
 }
 
 static void url_append_url(zval *this_ptr, smart_str *url TSRMLS_DC)
@@ -438,7 +438,7 @@ static void curl_append_headers(CURL *curl,
         zend_hash_update(merged, "Content-Type", sizeof("Content-Type"), &content_type, sizeof(zval*), NULL);
     }
     
-    if (method_override != NULL && !IS_POST(method)) {
+    if (method_override != NULL && IS_POST(method)) {
         MAKE_STD_ZVAL(xmethod);
         ZVAL_STRING(xmethod, method_override, 1);
         zend_hash_update(merged, "X-HTTP-Method-Override", sizeof("X-HTTP-Method-Override"), &xmethod, sizeof(zval*), NULL);
@@ -486,6 +486,8 @@ static void curl_set_request_data(CURL *curl, char *key, HashTable *inst_args, H
     smart_str   postdata = {0};
     char       *encoded;
     int         encoded_len;
+    
+    curl_easy_setopt(curl, CURLOPT_POST, 1);
     
     if (meth_args != NULL && GET_HTVAL(meth_args, key, zpostdata) && Z_TYPE_PP(zpostdata) == IS_STRING) {
         if (Z_STRLEN_PP(zpostdata) == 0 && inst_args != NULL) {
@@ -715,7 +717,7 @@ static void fetch(zval *return_value,
     if (IS_POST(method)) {
         if (method_override == NULL) {
             curl_set_request_data(curl, "#post", inst_args, meth_args TSRMLS_CC);
-        } else if (IS_PUT(method)) {
+        } else if (IS_PUT(method_override)) {
             curl_set_request_data(curl, "#put", inst_args, meth_args TSRMLS_CC);
         }
     }
