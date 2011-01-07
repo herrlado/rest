@@ -51,6 +51,7 @@ PHP_MINFO_FUNCTION(rest)
 /* }}} */
 
 zend_class_entry *rest_route_exception;
+zend_class_entry *rest_unsupported_method_exception;
 zend_class_entry *restresponse_class_entry;
 zend_class_entry *restclient_class_entry;
 
@@ -120,6 +121,12 @@ PHP_MINIT_FUNCTION(rest)
                                                            NULL TSRMLS_CC);
     
     zend_declare_property_null(rest_route_exception, "route", sizeof("route") - 1, ZEND_ACC_PUBLIC TSRMLS_CC);
+    
+    zend_class_entry unsupported_method_exception_ce;
+    INIT_CLASS_ENTRY(unsupported_method_exception_ce, "RestUnsupportedMethodException", NULL);    
+    rest_unsupported_method_exception = zend_register_internal_class_ex(&unsupported_method_exception_ce, 
+                                                           (zend_class_entry *) zend_exception_get_default(TSRMLS_C), 
+                                                           NULL TSRMLS_CC);
     
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_HEAD",       METHOD_HEAD, CONST_CS | CONST_PERSISTENT);
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_OPTIONS", METHOD_OPTIONS, CONST_CS | CONST_PERSISTENT);

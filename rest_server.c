@@ -1,7 +1,7 @@
 #include <string.h>
 #include "php_rest.h"
 
-static void handle_exception(char *message, zval *route);
+static void throw_exception(zend_class_entry *base, char *message, zval *route);
 static void normalize_path(char *input, zval **path TSRMLS_DC);
 static char *normalize_token(char *key, char *value);
 static void parse_path(char *path, HashTable *pathargs TSRMLS_DC);
@@ -109,17 +109,19 @@ REST_SERVER_METHOD(handleQueryParam)
     }
 }
 
-static void handle_exception(char *message, zval *route) 
+static void throw_exception(zend_class_entry *base, char *message, zval *route) 
 {
     zend_class_entry *parent = (zend_class_entry *) zend_exception_get_default();
-    zend_class_entry *base = rest_route_exception;
     zval             *exception;
     
     MAKE_STD_ZVAL(exception);
     object_init_ex(exception, base);
-    
-    zend_update_property(parent, exception, "route", sizeof("route") - 1, route TSRMLS_CC);
+
     zend_update_property_string(parent, exception, "message", sizeof("message") - 1, message TSRMLS_CC);
+    
+    if (route != NULL) {
+        zend_update_property(parent, exception, "route", sizeof("route") - 1, route TSRMLS_CC);
+    }
     
     zend_throw_exception_object(exception TSRMLS_CC);
 }
@@ -236,7 +238,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
             
             if (!zend_is_callable(*callback, 0, &callback_name TSRMLS_CC)) {
                 efree(callback_name);
-                handle_exception("Invalid callback", route);
+                throw_exception(rest_route_exception, "Invalid callback", route);
                 return;
             }
             
@@ -245,7 +247,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     }
     
     if (!has_callback) {
-        handle_exception("Route doesn't contain callback!", route);
+        throw_exception(rest_route_exception, "Route doesn't contain callback!", route);
     }
     
     MAKE_STD_ZVAL(copy);
@@ -414,6 +416,11 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
                         }
                         
                         zval_ptr_dtor(&ret_val);
+                    } else {
+                        throw_exception(rest_unsupported_method_exception, 
+                                        "Attempt to use unsupported HTTP method",
+                                        *route);
+                        return;
                     }
                     
                     found = 1;

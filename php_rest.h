@@ -26,6 +26,7 @@ extern zend_module_entry rest_module_entry;
 extern void rest_url_append_uri(char *uri, HashTable *args, smart_str *url, zend_bool encode TSRMLS_DC);
 
 extern zend_class_entry *rest_route_exception;
+extern zend_class_entry *rest_unsupported_method_exception;
 extern zend_class_entry *restresponse_class_entry;
 
 #ifdef PHP_WIN32
