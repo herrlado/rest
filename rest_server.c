@@ -320,7 +320,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     ulong          idx;
     int            type;
     char          *key;
-    
+
     MAKE_STD_ZVAL(delim);
     ZVAL_STRINGL(delim, "/", 1, 1);
     
@@ -360,7 +360,6 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     fnargs[0] = &args;
     
     if (Z_TYPE_P(callback) == IS_STRING) {
-        convert_to_string(callback);
         call_user_function_ex(EG(function_table), NULL, callback, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
     } else if (Z_TYPE_P(callback) == IS_ARRAY) {
         zval **object;
@@ -372,7 +371,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
         call_user_function_ex(EG(function_table), object, *method, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
     }
     
-    efree(args);
+    zval_ptr_dtor(fnargs[0]);
 }
 
 static void route(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
@@ -390,7 +389,6 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
     int                found = 0;
     
     resolve_request_method(&method TSRMLS_CC);
-    
     PROP(this_ptr, "routes", routes);
     
     for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(routes), &pos);
@@ -398,7 +396,6 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
         zend_hash_move_forward_ex(Z_ARRVAL_PP(routes), &pos)) {
         
         if (zend_hash_get_current_data_ex(Z_ARRVAL_PP(routes), (void**)&route, &pos) == SUCCESS) {
-            ARRVAL_PP(route, method, callback);
             ARRVAL_PP(route, "#expr", expr);
             
             if ((pce = pcre_get_compiled_regex_cache(Z_STRVAL_PP(expr), Z_STRLEN_PP(expr) TSRMLS_CC)) != NULL) {
@@ -409,18 +406,18 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
                 php_pcre_match_impl(pce, path, path_len, result, matches, 0, 1, 0, 0 TSRMLS_CC);
                 
                 if (zend_hash_num_elements(Z_ARRVAL_P(matches)) > 0) {
-                    invoke_route_callback(*callback, matches, &ret_val TSRMLS_CC);
-                    
-                    if (return_value_used) {
-                        COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                    if (GET_ARRVAL(route, method, callback)) {
+                        invoke_route_callback(*callback, matches, &ret_val TSRMLS_CC);
+                        
+                        if (return_value_used) {
+                            COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                        }
+                        
+                        zval_ptr_dtor(&ret_val);
                     }
                     
                     found = 1;
-                    zval_ptr_dtor(&ret_val);
                 }
-                
-                zval_ptr_dtor(&matches);
-                zval_ptr_dtor(&result);
             }
         }
     }
