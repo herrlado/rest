@@ -281,6 +281,7 @@ static void resolve_request_method(char **method TSRMLS_DC)
 {
     zval **server;
     zval **req_method;
+    zval **overriden;
     smart_str resolved = {0};
     
     HTVAL(EG(active_symbol_table), "_SERVER", server);
@@ -289,7 +290,9 @@ static void resolve_request_method(char **method TSRMLS_DC)
     smart_str_appends(&resolved, "#");
     
     if (IS_POST(Z_STRVAL_PP(req_method))) {
-        
+        if (GET_ARRVAL(server, "HTTP_X_HTTP_METHOD_OVERRIDE", overriden)) {
+            smart_str_appendl(&resolved, Z_STRVAL_PP(overriden), Z_STRLEN_PP(overriden));
+        }
     } else {
         smart_str_appendl(&resolved, Z_STRVAL_PP(req_method), Z_STRLEN_PP(req_method));
     }
