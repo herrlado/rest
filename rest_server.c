@@ -2,6 +2,7 @@
 #include "php_rest.h"
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route);
+static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...);
 static void normalize_path(char *input, zval **path TSRMLS_DC);
 static char *normalize_token(char *key, char *value);
 static void parse_path(char *path, HashTable *pathargs TSRMLS_DC);
@@ -111,13 +112,37 @@ REST_SERVER_METHOD(handleQueryParam)
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route) 
 {
-    zend_class_entry *parent = (zend_class_entry *) zend_exception_get_default();
+    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception();
     zval             *exception;
     
     MAKE_STD_ZVAL(exception);
     object_init_ex(exception, base);
 
     zend_update_property_string(parent, exception, "message", sizeof("message") - 1, message TSRMLS_CC);
+    
+    if (route != NULL) {
+        zend_update_property(parent, exception, "route", sizeof("route") - 1, route TSRMLS_CC);
+    }
+    
+    zend_throw_exception_object(exception TSRMLS_CC);
+}
+
+static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...)
+{
+    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception();
+    zval             *exception;
+    va_list           arg;
+    char             *message;
+    
+    va_start(arg, format);
+    zend_vspprintf(&message, 0, format, arg);
+    va_end(arg);
+    
+    MAKE_STD_ZVAL(exception);
+    object_init_ex(exception, base);
+    
+    zend_update_property_string(parent, exception, "message", sizeof("message") - 1, message TSRMLS_CC);
+    efree(message);
     
     if (route != NULL) {
         zend_update_property(parent, exception, "route", sizeof("route") - 1, route TSRMLS_CC);
@@ -417,9 +442,10 @@ static void route(zval *this_ptr, zval *return_value, int return_value_used, cha
                         
                         zval_ptr_dtor(&ret_val);
                     } else {
-                        throw_exception(rest_unsupported_method_exception, 
-                                        "Attempt to use unsupported HTTP method",
-                                        *route);
+                        throw_exception_ex(rest_unsupported_method_exception, 
+                                           *route TSRMLS_CC,
+                                           "Attempt to use unsupported HTTP method %s",
+                                           method);
                         return;
                     }
                     
