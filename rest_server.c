@@ -1,7 +1,7 @@
 #include <string.h>
 #include "php_rest.h"
 
-static void throw_exception(zend_class_entry *base, char *message, zval *route);
+static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC);
 static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...);
 static void normalize_path(char *input, zval **path TSRMLS_DC);
 static char *normalize_token(char *key, char *value);
@@ -110,7 +110,7 @@ REST_SERVER_METHOD(handleQueryParam)
     }
 }
 
-static void throw_exception(zend_class_entry *base, char *message, zval *route) 
+static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC) 
 {
     zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception();
     zval             *exception;
@@ -263,7 +263,10 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
             
             if (!zend_is_callable(*callback, 0, &callback_name TSRMLS_CC)) {
                 efree(callback_name);
-                throw_exception(rest_route_exception, "Invalid callback", route);
+                throw_exception_ex(rest_route_exception, 
+                                   route TSRMLS_CC,
+                                   "Invalid callback bound to request method %s",
+                                   user_callback_keys[i]);
                 return;
             }
             
@@ -272,7 +275,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     }
     
     if (!has_callback) {
-        throw_exception(rest_route_exception, "Route doesn't contain callback!", route);
+        throw_exception(rest_route_exception, "Route doesn't contain callback!", route TSRMLS_CC);
     }
     
     MAKE_STD_ZVAL(copy);
