@@ -741,7 +741,9 @@ static void fetch(zval *return_value,
     }
     
     zend_hash_destroy(inst_args);
+    FREE_HASHTABLE(inst_args);
     zend_hash_destroy(meth_args);
+    FREE_HASHTABLE(meth_args);
     curl_slist_free_all(slist);
     curl_easy_cleanup(curl);
     smart_str_free(&url);
