@@ -290,10 +290,16 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
         php_array_merge(pathargs, Z_ARRVAL_PP(tokens), 0 TSRMLS_CC);
     }
     
-    if (GET_HTVAL(Z_ARRVAL_P(copy), "#path", tmp)) {
+    if (GET_HTVAL(Z_ARRVAL_P(copy), "#path", tmp) && Z_TYPE_PP(tmp) == IS_STRING) {
         normalize_path(Z_STRVAL_PP(tmp), &path);
         parse_path(Z_STRVAL_P(path), pathargs TSRMLS_CC);
+    } else {
+        throw_exception(rest_route_exception, 
+                        "Invalid route, please specify path string using #path key", 
+                        route TSRMLS_CC);
+        return;
     }
+
     
     smart_str_appends(&uri, "~^");
     rest_url_append_uri(Z_STRVAL_P(path), pathargs, &uri, 0 TSRMLS_CC);
