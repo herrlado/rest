@@ -89,11 +89,18 @@ ZEND_BEGIN_ARG_INFO_EX(rest_add_route_arginfo, 0, 1, 0)
     ZEND_ARG_ARRAY_INFO(0, "route", 0)
 ZEND_END_ARG_INFO ()
 
+REST_ARGINFO
+ZEND_BEGIN_ARG_INFO_EX(rest_add_named_route_arginfo, 0, 2, 0)
+    ZEND_ARG_INFO(0, "name")
+    ZEND_ARG_ARRAY_INFO(0, "route", 0)
+ZEND_END_ARG_INFO ()
+
 zend_class_entry *restserver_class_entry;
 
 static function_entry restserver_class_functions[] = {
     ZEND_ME(RestServer,      __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
     ZEND_ME(RestServer,         addRoute, rest_add_route_arginfo, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,    addNamedRoute, rest_add_named_route_arginfo, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer,           handle, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleRequestUri, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleQueryParam, NULL, ZEND_ACC_PUBLIC)

@@ -36,12 +36,28 @@ REST_SERVER_METHOD(__construct)
 
 REST_SERVER_METHOD(addRoute) 
 {
-    zval  *route;
+    zval *route;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a/", &route) != SUCCESS) {
 		RETURN_FALSE;
 	}
     
+    add_route(this_ptr, route TSRMLS_CC);
+    
+    RETURN_THIS();
+}
+
+REST_SERVER_METHOD(addNamedRoute) 
+{
+    zval *route;
+    char *name;
+    int   name_len;
+    
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa/", &name, &name_len, &route) != SUCCESS) {
+		RETURN_FALSE;
+	}
+    
+    add_assoc_stringl(route, "#name", name, name_len, 1);
     add_route(this_ptr, route TSRMLS_CC);
     
     RETURN_THIS();
@@ -251,6 +267,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     zval       *copy;
     zval      **tmp;
     zval       *path;
+    zval      **name;
     zval      **callback;
     char       *callback_name;
     smart_str   uri = {0};
@@ -291,6 +308,10 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     }
     
     if (GET_HTVAL(Z_ARRVAL_P(copy), "#path", tmp) && Z_TYPE_PP(tmp) == IS_STRING) {
+        if (!zend_hash_exists(Z_ARRVAL_P(copy), "#name", sizeof("#name"))) {
+            add_assoc_stringl(copy, "#name", Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp), 1);
+        }
+        
         normalize_path(Z_STRVAL_PP(tmp), &path);
         parse_path(Z_STRVAL_P(path), pathargs TSRMLS_CC);
     } else {
@@ -299,7 +320,6 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
                         route TSRMLS_CC);
         return;
     }
-
     
     smart_str_appends(&uri, "~^");
     rest_url_append_uri(Z_STRVAL_P(path), pathargs, &uri, 0 TSRMLS_CC);
@@ -310,7 +330,9 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     smart_str_free(&uri);
     
     PROP(this_ptr, "routes", routes);
-    zend_hash_next_index_insert(Z_ARRVAL_PP(routes), &copy, sizeof(zval *), NULL);
+    HTVAL(Z_ARRVAL_P(copy), "#name", name);
+
+    zend_hash_update(Z_ARRVAL_PP(routes), Z_STRVAL_PP(name), Z_STRLEN_PP(name) + 1, &copy, sizeof(zval*), NULL);
 }
 
 static void resolve_request_method(char **method TSRMLS_DC)

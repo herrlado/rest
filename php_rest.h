@@ -84,6 +84,7 @@ PHP_METHOD(RestClient, delete);
 /** RestServer class methods */
 PHP_METHOD(RestServer, __construct);
 PHP_METHOD(RestServer, addRoute);
+PHP_METHOD(RestServer, addNamedRoute);
 PHP_METHOD(RestServer, handle);
 PHP_METHOD(RestServer, setCallbackHandler);
 PHP_METHOD(RestServer, setErrorHandler);
