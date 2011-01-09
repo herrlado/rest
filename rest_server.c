@@ -9,7 +9,7 @@ static void parse_path(char *path, HashTable *pathargs TSRMLS_DC);
 static void add_route(zval *this_ptr, zval *route TSRMLS_DC);
 static void resolve_request_method(char **method TSRMLS_DC);
 static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC);
-static void route(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len);
+static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len);
 
 static char *user_callback_keys[] = {"#get", "#post", "#put", "#delete"};
 
@@ -56,7 +56,7 @@ REST_SERVER_METHOD(handle)
 		RETURN_FALSE;
 	}
     
-    route(this_ptr, return_value, return_value_used, path, path_len);
+    handle(this_ptr, return_value, return_value_used, path, path_len);
 }
 
 REST_SERVER_METHOD(handleRequestUri) 
@@ -87,7 +87,7 @@ REST_SERVER_METHOD(handleRequestUri)
         }
     }
     
-    route(this_ptr, return_value, return_value_used, Z_STRVAL_P(req_uri), Z_STRLEN_P(req_uri));
+    handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(req_uri), Z_STRLEN_P(req_uri));
 }
 
 REST_SERVER_METHOD(handleQueryParam) 
@@ -106,7 +106,7 @@ REST_SERVER_METHOD(handleQueryParam)
     
     if (GET_HTVAL(Z_ARRVAL_PP(get), param_name, tmp)) {
         normalize_path(Z_STRVAL_PP(tmp), &path);
-        route(this_ptr, return_value, return_value_used, Z_STRVAL_P(path), Z_STRLEN_P(path));
+        handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(path), Z_STRLEN_P(path));
     }
 }
 
@@ -401,7 +401,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     zval_ptr_dtor(fnargs[0]);
 }
 
-static void route(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
+static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
 {
     pcre_cache_entry  *pce;
     HashPosition       pos;
