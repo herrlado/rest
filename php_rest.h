@@ -86,10 +86,12 @@ PHP_METHOD(RestServer, __construct);
 PHP_METHOD(RestServer, addRoute);
 PHP_METHOD(RestServer, addNamedRoute);
 PHP_METHOD(RestServer, handle);
-PHP_METHOD(RestServer, setCallbackHandler);
-PHP_METHOD(RestServer, setErrorHandler);
 PHP_METHOD(RestServer, handleRequestUri);
 PHP_METHOD(RestServer, handleQueryParam);
+PHP_METHOD(RestServer, get);
+PHP_METHOD(RestServer, put);
+PHP_METHOD(RestServer, post);
+PHP_METHOD(RestServer, delete);
 
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION > 2) || PHP_MAJOR_VERSION > 5
 #   define REST_ARGINFO

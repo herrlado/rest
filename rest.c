@@ -104,6 +104,10 @@ static function_entry restserver_class_functions[] = {
     ZEND_ME(RestServer,           handle, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleRequestUri, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleQueryParam, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,              get, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,              put, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,             post, NULL, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,           delete, NULL, ZEND_ACC_PUBLIC)
     {NULL, NULL, NULL}
 };
 

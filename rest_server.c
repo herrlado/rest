@@ -9,7 +9,8 @@ static void parse_path(char *path, HashTable *pathargs TSRMLS_DC);
 static void add_route(zval *this_ptr, zval *route TSRMLS_DC);
 static void resolve_request_method(char **method TSRMLS_DC);
 static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC);
-static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len);
+static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len TSRMLS_DC);
+static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method);
 
 static char *user_callback_keys[] = {"#get", "#post", "#put", "#delete"};
 
@@ -124,6 +125,26 @@ REST_SERVER_METHOD(handleQueryParam)
         normalize_path(Z_STRVAL_PP(tmp), &path);
         handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(path), Z_STRLEN_P(path));
     }
+}
+
+REST_SERVER_METHOD(get) 
+{
+    handle_internal(INTERNAL_FUNCTION_PARAM_PASSTHRU, "#get");
+}
+
+REST_SERVER_METHOD(put) 
+{
+    handle_internal(INTERNAL_FUNCTION_PARAM_PASSTHRU, "#put");
+}
+
+REST_SERVER_METHOD(post) 
+{
+    handle_internal(INTERNAL_FUNCTION_PARAM_PASSTHRU, "#post");
+}
+
+REST_SERVER_METHOD(delete) 
+{
+    handle_internal(INTERNAL_FUNCTION_PARAM_PASSTHRU, "#delete");
 }
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC) 
@@ -475,7 +496,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     } else {
                         throw_exception_ex(rest_unsupported_method_exception, 
                                            *route TSRMLS_CC,
-                                           "Attempt to use unsupported HTTP method %s",
+                                           "There is no callback bound to specified HTTP method %s",
                                            method);
                         return;
                     }
@@ -487,4 +508,59 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
     }
     
     efree(method);
+}
+
+static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method)
+{
+    zval  *ret_val;
+    zval  *route_params;
+    zval  *data;
+    zval  *query_params;
+    zval **routes;
+    zval **route;
+    zval **callback;
+    char  *route_name;
+    int    route_name_len;
+    
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa/a!/|a!/", 
+                              &route_name, &route_name_len, &route_params, &data, &query_params) != SUCCESS) {
+		RETURN_FALSE;
+	}
+    
+    PROP(this_ptr, "routes", routes);
+    
+    if (!(GET_ARRVAL(routes, route_name, route))) {
+        throw_exception_ex(rest_route_exception, 
+                           NULL TSRMLS_CC,
+                           "There is no route with specified name %s",
+                           route_name);
+        return;
+    }
+    
+    if (!(GET_ARRVAL(route, method, callback))) {
+        throw_exception_ex(rest_unsupported_method_exception, 
+                           *route TSRMLS_CC,
+                           "There is no callback bound to specified HTTP method %s",
+                           method);
+        return;
+    }
+    
+    if (Z_TYPE_P(query_params) != IS_ARRAY) {
+        array_init(query_params);
+    }
+    
+    if (strcmp(method, "#put") == 0 || strcmp(method, "#post") == 0) {
+        ZEND_SET_SYMBOL(EG(active_symbol_table), "_GET",  query_params);
+        ZEND_SET_SYMBOL(EG(active_symbol_table), "_POST", data);
+    } else {
+        ZEND_SET_SYMBOL(EG(active_symbol_table), "_GET", data);
+    }
+
+    invoke_route_callback(*callback, route_params, &ret_val TSRMLS_CC);
+    
+    if (return_value_used) {
+        COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+    }
+    
+    zval_ptr_dtor(&ret_val);
 }
