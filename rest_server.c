@@ -464,6 +464,65 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     zval_ptr_dtor(fnargs[0]);
 }
 
+static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
+    HashPosition   pos;
+    zval         **handlers;
+    zval         **callback;
+    zval          *ret_val;
+    zval         **fnargs[1];
+    zval         **tmp;
+    
+    if (GET_HTVAL(Z_ARRVAL_P(route), "#handlers", handlers)) {
+        for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(handlers), &pos);
+            zend_hash_has_more_elements_ex(Z_ARRVAL_PP(handlers), &pos) == SUCCESS;
+            zend_hash_move_forward_ex(Z_ARRVAL_PP(handlers), &pos)) {
+            
+            if (zend_hash_get_current_data_ex(Z_ARRVAL_PP(handlers), (void**)&callback, &pos) == SUCCESS) {
+                char *key;
+                uint key_len;
+                ulong num_index;
+                
+                zend_hash_get_current_key_ex(Z_ARRVAL_PP(handlers), &key, &key_len, &num_index, 1, &pos);
+                
+                HTVAL(Z_ARRVAL_P(matches), key, tmp);
+                fnargs[0] = tmp;
+                
+                if (Z_TYPE_PP(callback) == IS_STRING) {
+                    call_user_function_ex(EG(function_table), NULL, *callback, &ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
+                } else if (Z_TYPE_PP(callback) == IS_ARRAY) {
+                    zval **object;
+                    zval **method;
+                    
+                    zend_hash_index_find(Z_ARRVAL_PP(callback), 0, (void **) &object);
+                    zend_hash_index_find(Z_ARRVAL_PP(callback), 1, (void **) &method);
+                    
+                    call_user_function_ex(EG(function_table), object, *method, &ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
+                }
+                
+                zval_ptr_dtor(fnargs[0]);
+                
+                if (Z_TYPE_P(ret_val) == IS_BOOL && !Z_BVAL_P(ret_val)) {
+                    zval_ptr_dtor(&ret_val);
+                    
+                    throw_exception_ex(rest_route_exception, 
+                                       route TSRMLS_CC,
+                                       "Validation error for token '%s'",
+                                       key);
+                    
+                    return 0;
+                } else {
+                    zval_add_ref(&ret_val);
+                    zend_hash_update(Z_ARRVAL_P(matches), key, strlen(key) + 1, &ret_val, sizeof(zval *), NULL);
+                }
+
+                zval_ptr_dtor(&ret_val);
+            }
+        }
+    }
+    
+    return 1;
+}
+
 static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
 {
     pcre_cache_entry  *pce;
@@ -497,13 +556,15 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                 
                 if (zend_hash_num_elements(Z_ARRVAL_P(matches)) > 0) {
                     if (GET_ARRVAL(route, method, callback)) {
-                        invoke_route_callback(*callback, matches, &ret_val TSRMLS_CC);
-                        
-                        if (return_value_used) {
-                            COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                        if (normalize_matches(*route, matches TSRMLS_CC)) {
+                            invoke_route_callback(*callback, matches, &ret_val TSRMLS_CC);
+                            
+                            if (return_value_used) {
+                                COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                            }
+                            
+                            zval_ptr_dtor(&ret_val);
                         }
-                        
-                        zval_ptr_dtor(&ret_val);
                     } else {
                         throw_exception_ex(rest_unsupported_method_exception, 
                                            *route TSRMLS_CC,
