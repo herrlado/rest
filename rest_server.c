@@ -5,7 +5,7 @@ static void throw_exception(zend_class_entry *base, char *message, zval *route T
 static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...);
 static void normalize_path(char *input, zval **path TSRMLS_DC);
 static char *normalize_token(char *key, char *value);
-static void parse_path(char *path, HashTable *pathargs TSRMLS_DC);
+static void parse_path(char *path, HashTable *pathargs, zval *route TSRMLS_DC);
 static void add_route(zval *this_ptr, zval *route TSRMLS_DC);
 static void resolve_request_method(char **method TSRMLS_DC);
 static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC);
@@ -212,7 +212,7 @@ static char *normalize_token(char *key, char *value)
     char      *normalized;
     smart_str  result = {0};
     
-    if (strncmp(value, prefix, strlen(prefix)) != 0 || strncmp(value, prefix, strlen(prefix)) != 0) {
+    if (strncmp(value, prefix, strlen(prefix)) != 0) {
         
         if (strcmp(value, REST_ROUTE_PATTERN_TOKENS) == 0 ||
             strcmp(value, REST_ROUTE_PATTERN_ALPHA_TOKENS) == 0 ||
@@ -237,13 +237,17 @@ static char *normalize_token(char *key, char *value)
     return normalized;
 }
 
-static void parse_path(char *path, HashTable *pathargs TSRMLS_DC)
+static void parse_path(char *path, HashTable *pathargs, zval *route TSRMLS_DC)
 {
+    zval *handlers;
     char *regex = REST_ROUTE_PATTERN_DEFAULT;
     int   regex_len = strlen(regex) + 1;
     int   i;
     int   start;
     int   path_len = strlen(path);
+    
+    MAKE_STD_ZVAL(handlers);
+    array_init(handlers);
     
     for (i = 0, start = 0; i < path_len; i++) {
         if (path[i] == '{') {
@@ -262,8 +266,13 @@ static void parse_path(char *path, HashTable *pathargs TSRMLS_DC)
             
             MAKE_STD_ZVAL(tmp);
             
-            if (GET_HTVAL(pathargs, key, value)) {
-                if (Z_TYPE_PP(value) == IS_STRING && !zend_is_callable(*value, 0, &callback_name TSRMLS_CC)) {
+            if (GET_HTVAL(pathargs, key, value)) {                
+                if (zend_is_callable(*value, 0, &callback_name TSRMLS_CC)) {
+                    snprintf(buf, regex_len + key_len, regex, key);
+                    ZVAL_STRING(tmp, buf, 1);
+                    add_assoc_zval(handlers, key, *value);
+                    efree(callback_name);
+                } else if (Z_TYPE_PP(value) == IS_STRING) {
                     normalized = normalize_token(key, Z_STRVAL_PP(value));
                     ZVAL_STRING(tmp, normalized, 1);
                     efree(normalized);
@@ -278,6 +287,8 @@ static void parse_path(char *path, HashTable *pathargs TSRMLS_DC)
             start = ++i;
         }
     }
+    
+    add_assoc_zval(route, "#handlers", handlers);
 }
 
 static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
@@ -334,7 +345,7 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
         }
         
         normalize_path(Z_STRVAL_PP(tmp), &path);
-        parse_path(Z_STRVAL_P(path), pathargs TSRMLS_CC);
+        parse_path(Z_STRVAL_P(path), pathargs, copy TSRMLS_CC);
     } else {
         throw_exception(rest_route_exception, 
                         "Invalid route, please specify path string using #path key", 
