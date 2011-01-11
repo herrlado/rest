@@ -20,19 +20,19 @@ const zend_function_entry rest_functions[] = {
  */
 zend_module_entry rest_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
-	STANDARD_MODULE_HEADER,
+    STANDARD_MODULE_HEADER,
 #endif
-	"rest",
-	rest_functions,
-	PHP_MINIT(rest),
-	NULL,
-	NULL,
-	NULL,
-	PHP_MINFO(rest),
+    "rest",
+    rest_functions,
+    PHP_MINIT(rest),
+    NULL,
+    NULL,
+    NULL,
+    PHP_MINFO(rest),
 #if ZEND_MODULE_API_NO >= 20010901
-	"0.1", /* Replace with version number for your extension */
+    "0.1", /* Replace with version number for your extension */
 #endif
-	STANDARD_MODULE_PROPERTIES
+    STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
 
@@ -44,9 +44,9 @@ ZEND_GET_MODULE(rest)
  */
 PHP_MINFO_FUNCTION(rest)
 {
-	php_info_print_table_start();
-	php_info_print_table_header(2, "rest support", "enabled");
-	php_info_print_table_end();
+    php_info_print_table_start();
+    php_info_print_table_header(2, "rest support", "enabled");
+    php_info_print_table_end();
 }
 /* }}} */
 
@@ -156,12 +156,12 @@ PHP_MINIT_FUNCTION(rest)
 
 PHP_MSHUTDOWN_FUNCTION(oauth) 
 {
-	rest_route_exception = NULL;
-	rest_unsupported_method_exception = NULL;
-	restresponse_class_entry = NULL;
-	restclient_class_entry = NULL;
-	
-	return SUCCESS;
+    rest_route_exception = NULL;
+    rest_unsupported_method_exception = NULL;
+    restresponse_class_entry = NULL;
+    restclient_class_entry = NULL;
+    
+    return SUCCESS;
 }
 
 void rest_url_append_uri(char *uri, HashTable *args, smart_str *url, zend_bool encode TSRMLS_DC)

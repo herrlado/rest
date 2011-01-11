@@ -8,25 +8,25 @@
 #define JSON_MAX_DEPTH       512
 
 #define MERGED_HASHTABLE(merged, name, inst_args, meth_args) \
-ALLOC_HASHTABLE(merged); \
-zend_hash_init(merged, 0, NULL, ZVAL_PTR_DTOR, 0); \
-params_merge(merged, name, inst_args, meth_args TSRMLS_CC);
+    ALLOC_HASHTABLE(merged); \
+    zend_hash_init(merged, 0, NULL, ZVAL_PTR_DTOR, 0); \
+    params_merge(merged, name, inst_args, meth_args TSRMLS_CC);
 
 #define GET_INSTANCE_ARGS(this_ptr, args_prop, inst_args) \
-if (GET_PROP(this_ptr, "args", args_prop) && Z_TYPE_PP(args_prop) == IS_ARRAY) { \
-SEPARATE_ZVAL(args_prop); \
-inst_args = Z_ARRVAL_PP(args_prop); \
-} else { \
-inst_args = NULL; \
-}
+    if (GET_PROP(this_ptr, "args", args_prop) && Z_TYPE_PP(args_prop) == IS_ARRAY) { \
+        SEPARATE_ZVAL(args_prop); \
+        inst_args = Z_ARRVAL_PP(args_prop); \
+    } else { \
+        inst_args = NULL; \
+    }
 
 #define GET_METHOD_ARGS(args, meth_args) \
-if (Z_TYPE_P(args) == IS_ARRAY) { \
-SEPARATE_ZVAL(&args); \
-meth_args = Z_ARRVAL_P(args); \
-} else { \
-meth_args = NULL; \
-}
+    if (Z_TYPE_P(args) == IS_ARRAY) { \
+        SEPARATE_ZVAL(&args); \
+        meth_args = Z_ARRVAL_P(args); \
+    } else { \
+        meth_args = NULL; \
+    }
 
 static size_t curl_header_available(char *data, size_t size, size_t nmemb, void *ctx);
 static size_t curl_body_available(char *body, size_t size, size_t nmemb, void *ctx);
@@ -63,8 +63,8 @@ REST_CLIENT_METHOD(__construct)
     zval *copy;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|a", &url, &args) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     add_property_stringl(this_ptr, "url", Z_STRVAL_P(url), Z_STRLEN_P(url), 1);
     add_property_stringl(this_ptr, "charset", DEFAULT_CHARSET, strlen(DEFAULT_CHARSET), 1);
@@ -88,8 +88,8 @@ REST_CLIENT_METHOD(skipSSLCheck)
     zend_bool flag;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "b", &flag) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     add_property_bool(this_ptr, "skipSSLCheck", flag);
 }
@@ -99,8 +99,8 @@ REST_CLIENT_METHOD(setDebugMode)
     zend_bool flag;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "b", &flag) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     add_property_bool(this_ptr, "debugMode", flag);
 }
@@ -110,8 +110,8 @@ REST_CLIENT_METHOD(setRequestEncoding)
     zval *encoding;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &encoding) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     add_property_zval(this_ptr, "charset", encoding);
 }
@@ -122,8 +122,8 @@ inline static void _setParams(INTERNAL_FUNCTION_PARAMETERS, char *hash_key)
     zval **args;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &value) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     if (GET_PROP(this_ptr, "args", args)) {
         SEPARATE_ZVAL(&value);
@@ -142,8 +142,8 @@ inline static void _addParam(INTERNAL_FUNCTION_PARAMETERS, char *hash_key)
     int    keylen;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &key, &keylen, &value) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     if (GET_PROP(this_ptr, "args", args)) {
         if (!(GET_ARRVAL(args, hash_key, arr))) {
@@ -175,8 +175,8 @@ inline static void _removeParam(INTERNAL_FUNCTION_PARAMETERS, char *hash_key)
     int    keylen;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &key, &keylen) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     if (GET_PROP(this_ptr, "args", args)) {
         if (GET_ARRVAL(args, hash_key, arr)) {
@@ -255,8 +255,8 @@ REST_CLIENT_METHOD(fetch)
     int        method_len;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz|ab", &method, &method_len, &uri, &args, &decode) != SUCCESS) {
-		RETURN_FALSE;
-	}
+        RETURN_FALSE;
+    }
     
     if (IS_GET(method) || IS_POST(method) || IS_HEAD(method)) {
         method_actual = method;
@@ -511,7 +511,7 @@ static void curl_set_request_data(CURL *curl, char *key, HashTable *inst_args, H
         encoded = php_str_to_str(postdata.c, postdata.len, "+", 1, "%20", 3, &encoded_len);
         
         curl_easy_setopt(curl,    CURLOPT_POSTFIELDS, encoded);
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, encoded_len);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, encoded_len);
         
         smart_str_free(&postdata);
     }

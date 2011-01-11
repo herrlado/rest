@@ -31,11 +31,11 @@ extern zend_class_entry *rest_unsupported_method_exception;
 extern zend_class_entry *restresponse_class_entry;
 
 #ifdef PHP_WIN32
-#	define PHP_REST_API __declspec(dllexport)
+#    define PHP_REST_API __declspec(dllexport)
 #elif defined(__GNUC__) && __GNUC__ >= 4
-#	define PHP_REST_API __attribute__ ((visibility("default")))
+#    define PHP_REST_API __attribute__ ((visibility("default")))
 #else
-#	define PHP_REST_API
+#    define PHP_REST_API
 #endif
 
 #ifdef ZTS
@@ -147,12 +147,12 @@ PHP_METHOD(RestServer, delete);
     HTVAL(_arr, _name, _value) == SUCCESS
 
 /* 
-  	Declare any global variables you may need between the BEGIN
-	and END macros here:     
+      Declare any global variables you may need between the BEGIN
+    and END macros here:     
 
 ZEND_BEGIN_MODULE_GLOBALS(rest)
-	long  global_value;
-	char *global_string;
+    long  global_value;
+    char *global_string;
 ZEND_END_MODULE_GLOBALS(rest)
 */
 
@@ -172,7 +172,7 @@ ZEND_END_MODULE_GLOBALS(rest)
 #define REST_G(v) (rest_globals.v)
 #endif
 
-#endif	/* PHP_REST_H */
+#endif    /* PHP_REST_H */
 
 #define REST_CLIENT_METHOD(_method) PHP_METHOD(RestClient, _method)
 #define REST_SERVER_METHOD(_method) PHP_METHOD(RestServer, _method)
