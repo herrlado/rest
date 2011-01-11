@@ -8,25 +8,25 @@
 #define JSON_MAX_DEPTH       512
 
 #define MERGED_HASHTABLE(merged, name, inst_args, meth_args) \
-    ALLOC_HASHTABLE(merged); \
-    zend_hash_init(merged, 0, NULL, ZVAL_PTR_DTOR, 0); \
-    params_merge(merged, name, inst_args, meth_args TSRMLS_CC);
+ALLOC_HASHTABLE(merged); \
+zend_hash_init(merged, 0, NULL, ZVAL_PTR_DTOR, 0); \
+params_merge(merged, name, inst_args, meth_args TSRMLS_CC);
 
 #define GET_INSTANCE_ARGS(this_ptr, args_prop, inst_args) \
-    if (GET_PROP(this_ptr, "args", args_prop) && Z_TYPE_PP(args_prop) == IS_ARRAY) { \
-        SEPARATE_ZVAL(args_prop); \
-        inst_args = Z_ARRVAL_PP(args_prop); \
-    } else { \
-        inst_args = NULL; \
-    }
+if (GET_PROP(this_ptr, "args", args_prop) && Z_TYPE_PP(args_prop) == IS_ARRAY) { \
+SEPARATE_ZVAL(args_prop); \
+inst_args = Z_ARRVAL_PP(args_prop); \
+} else { \
+inst_args = NULL; \
+}
 
 #define GET_METHOD_ARGS(args, meth_args) \
-    if (Z_TYPE_P(args) == IS_ARRAY) { \
-        SEPARATE_ZVAL(&args); \
-        meth_args = Z_ARRVAL_P(args); \
-    } else { \
-        meth_args = NULL; \
-    }
+if (Z_TYPE_P(args) == IS_ARRAY) { \
+SEPARATE_ZVAL(&args); \
+meth_args = Z_ARRVAL_P(args); \
+} else { \
+meth_args = NULL; \
+}
 
 static size_t curl_header_available(char *data, size_t size, size_t nmemb, void *ctx);
 static size_t curl_body_available(char *body, size_t size, size_t nmemb, void *ctx);
@@ -271,7 +271,7 @@ REST_CLIENT_METHOD(fetch)
         zval_copy_ctor(copy);
     }
     
-    fetch(return_value, this_ptr, uri, copy, decode, method_actual, method_override TSRMLS_DC);
+    fetch(return_value, this_ptr, uri, copy, decode, method_actual, method_override TSRMLS_CC);
 }
 
 inline static void _fetch(INTERNAL_FUNCTION_PARAMETERS, char *method, char *method_override)

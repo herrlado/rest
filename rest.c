@@ -86,13 +86,13 @@ static function_entry restclient_class_functions[] = {
 
 REST_ARGINFO
 ZEND_BEGIN_ARG_INFO_EX(rest_add_route_arginfo, 0, 1, 0)
-    ZEND_ARG_ARRAY_INFO(0, "route", 0)
+ZEND_ARG_ARRAY_INFO(0, "route", 0)
 ZEND_END_ARG_INFO ()
 
 REST_ARGINFO
 ZEND_BEGIN_ARG_INFO_EX(rest_add_named_route_arginfo, 0, 2, 0)
-    ZEND_ARG_INFO(0, "name")
-    ZEND_ARG_ARRAY_INFO(0, "route", 0)
+ZEND_ARG_INFO(0, "name")
+ZEND_ARG_ARRAY_INFO(0, "route", 0)
 ZEND_END_ARG_INFO ()
 
 zend_class_entry *restserver_class_entry;
@@ -136,8 +136,8 @@ PHP_MINIT_FUNCTION(rest)
     zend_class_entry unsupported_method_exception_ce;
     INIT_CLASS_ENTRY(unsupported_method_exception_ce, "RestUnsupportedMethodException", NULL);    
     rest_unsupported_method_exception = zend_register_internal_class_ex(&unsupported_method_exception_ce, 
-                                                           (zend_class_entry *) zend_exception_get_default(TSRMLS_C), 
-                                                           NULL TSRMLS_CC);
+                                                                        (zend_class_entry *) zend_exception_get_default(TSRMLS_C), 
+                                                                        NULL TSRMLS_CC);
     
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_HEAD",       METHOD_HEAD, CONST_CS | CONST_PERSISTENT);
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_OPTIONS", METHOD_OPTIONS, CONST_CS | CONST_PERSISTENT);
@@ -152,6 +152,16 @@ PHP_MINIT_FUNCTION(rest)
     REGISTER_STRING_CONSTANT("REST_ROUTE_PATTERN_DIGIT_TOKENS", REST_ROUTE_PATTERN_DIGIT_TOKENS, CONST_CS | CONST_PERSISTENT);
     
     return SUCCESS;
+}
+
+PHP_MSHUTDOWN_FUNCTION(oauth) 
+{
+	rest_route_exception = NULL;
+	rest_unsupported_method_exception = NULL;
+	restresponse_class_entry = NULL;
+	restclient_class_entry = NULL;
+	
+	return SUCCESS;
 }
 
 void rest_url_append_uri(char *uri, HashTable *args, smart_str *url, zend_bool encode TSRMLS_DC)

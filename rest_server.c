@@ -1,4 +1,10 @@
 #include <string.h>
+#include "zend.h"
+#include "zend_API.h"
+#include "zend_builtin_functions.h"
+#include "zend_interfaces.h"
+#include "zend_exceptions.h"
+#include "zend_vm.h"
 #include "php_rest.h"
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC);
@@ -11,6 +17,8 @@ static void resolve_request_method(char **method TSRMLS_DC);
 static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC);
 static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len TSRMLS_DC);
 static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method);
+static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC);
+int (*zend_vspprintf)(char **pbuf, size_t max_len, const char *format, va_list ap);
 
 static char *user_callback_keys[] = {"#get", "#post", "#put", "#delete"};
 
@@ -25,9 +33,9 @@ REST_SERVER_METHOD(__construct)
 		RETURN_FALSE;
 	}
     
-    normalize_path(input, &endpoint);
-    
+    normalize_path(input, &endpoint TSRMLS_CC);
     add_property_stringl(this_ptr, "endpoint", Z_STRVAL_P(endpoint), Z_STRLEN_P(endpoint), 1);
+    zval_ptr_dtor(&endpoint);
     
     MAKE_STD_ZVAL(routes);
     array_init(routes);
@@ -73,7 +81,7 @@ REST_SERVER_METHOD(handle)
 		RETURN_FALSE;
 	}
     
-    handle(this_ptr, return_value, return_value_used, path, path_len);
+    handle(this_ptr, return_value, return_value_used, path, path_len TSRMLS_CC);
 }
 
 REST_SERVER_METHOD(handleRequestUri) 
@@ -90,13 +98,13 @@ REST_SERVER_METHOD(handleRequestUri)
     HTVAL(Z_ARRVAL_PP(server), "REQUEST_URI", value);
     
     url = php_url_parse_ex(Z_STRVAL_PP(value), Z_STRLEN_PP(value));
-    normalize_path(url->path, &path);
+    normalize_path(url->path, &path TSRMLS_CC);
     php_url_free(url);
     
     if (GET_PROP(this_ptr, "endpoint", endpoint)) {
         if (strncmp(Z_STRVAL_P(path), Z_STRVAL_PP(endpoint), Z_STRLEN_PP(endpoint)) == 0) {
             tmp = estrdup(Z_STRVAL_P(path) + Z_STRLEN_PP(endpoint));
-            normalize_path(tmp, &req_uri);
+            normalize_path(tmp, &req_uri TSRMLS_CC);
             efree(tmp);
         } else {
             MAKE_STD_ZVAL(req_uri);
@@ -104,7 +112,7 @@ REST_SERVER_METHOD(handleRequestUri)
         }
     }
     
-    handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(req_uri), Z_STRLEN_P(req_uri));
+    handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(req_uri), Z_STRLEN_P(req_uri) TSRMLS_CC);
 }
 
 REST_SERVER_METHOD(handleQueryParam) 
@@ -122,8 +130,8 @@ REST_SERVER_METHOD(handleQueryParam)
     HTVAL(EG(active_symbol_table), "_GET", get);
     
     if (GET_HTVAL(Z_ARRVAL_PP(get), param_name, tmp)) {
-        normalize_path(Z_STRVAL_PP(tmp), &path);
-        handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(path), Z_STRLEN_P(path));
+        normalize_path(Z_STRVAL_PP(tmp), &path TSRMLS_CC);
+        handle(this_ptr, return_value, return_value_used, Z_STRVAL_P(path), Z_STRLEN_P(path) TSRMLS_CC);
     }
 }
 
@@ -149,12 +157,12 @@ REST_SERVER_METHOD(delete)
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC) 
 {
-    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception();
+    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception(TSRMLS_C);
     zval             *exception;
     
     MAKE_STD_ZVAL(exception);
     object_init_ex(exception, base);
-
+    
     zend_update_property_string(parent, exception, "message", sizeof("message") - 1, message TSRMLS_CC);
     
     if (route != NULL) {
@@ -166,7 +174,7 @@ static void throw_exception(zend_class_entry *base, char *message, zval *route T
 
 static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...)
 {
-    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception();
+    zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception(TSRMLS_C);
     zval             *exception;
     va_list           arg;
     char             *message;
@@ -192,7 +200,7 @@ static void normalize_path(char *input, zval **path TSRMLS_DC)
 {
     smart_str  result = {0};
     char      *trimmed;
-
+    
     smart_str_appends(&result, "/");
     trimmed = php_trim(input, strlen(input), "/", 1, NULL, 3 TSRMLS_CC);
     smart_str_appends(&result, trimmed);
@@ -293,10 +301,9 @@ static void parse_path(char *path, HashTable *pathargs, zval *route TSRMLS_DC)
 
 static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
 {
-    HashTable  *pathargs;
+    zval        pathargs;
     zval      **tokens;
     zval      **routes;
-    zval       *copy;
     zval      **tmp;
     zval       *path;
     zval      **name;
@@ -305,47 +312,42 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     smart_str   uri = {0};
     int         i;
     int         has_callback = 0;
-    
+	
     for (i = 0; i < 4; i++) {
         if (GET_HTVAL(Z_ARRVAL_P(route), user_callback_keys[i], callback)) {
             has_callback = 1;
             
             if (!zend_is_callable(*callback, 0, &callback_name TSRMLS_CC)) {
-                efree(callback_name);
-                throw_exception_ex(rest_route_exception, 
-                                   route TSRMLS_CC,
-                                   "Invalid callback bound to request method %s",
-                                   user_callback_keys[i]);
+                /*throw_exception_ex(rest_route_exception, 
+                 route TSRMLS_CC,
+                 "Invalid callback bound to request method %s",
+                 user_callback_keys[i]);*/
+			    throw_exception(rest_route_exception, "Route doesn't contain callback!", route TSRMLS_CC);
                 return;
             }
             
             efree(callback_name);
         }
     }
-    
+	
     if (!has_callback) {
         throw_exception(rest_route_exception, "Route doesn't contain callback!", route TSRMLS_CC);
     }
     
-    MAKE_STD_ZVAL(copy);
-    *copy = *route;
-    zval_copy_ctor(copy);
-    zval_dtor(route);
+    if (GET_HTVAL(Z_ARRVAL_P(route), "#tokens", tokens)) {
+		pathargs = **tokens;
+		zval_copy_ctor(&pathargs);
+    } else {
+		array_init(&pathargs);
+	}
     
-    ALLOC_HASHTABLE(pathargs);
-    zend_hash_init(pathargs, 0, NULL, ZVAL_PTR_DTOR, 0);
-    
-    if (GET_HTVAL(Z_ARRVAL_P(copy), "#tokens", tokens)) {
-        php_array_merge(pathargs, Z_ARRVAL_PP(tokens), 0 TSRMLS_CC);
-    }
-    
-    if (GET_HTVAL(Z_ARRVAL_P(copy), "#path", tmp) && Z_TYPE_PP(tmp) == IS_STRING) {
-        if (!zend_hash_exists(Z_ARRVAL_P(copy), "#name", sizeof("#name"))) {
-            add_assoc_stringl(copy, "#name", Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp), 1);
+    if (GET_HTVAL(Z_ARRVAL_P(route), "#path", tmp) && Z_TYPE_PP(tmp) == IS_STRING) {
+        if (!zend_hash_exists(Z_ARRVAL_P(route), "#name", sizeof("#name"))) {
+            add_assoc_stringl(route, "#name", Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp), 1);
         }
         
-        normalize_path(Z_STRVAL_PP(tmp), &path);
-        parse_path(Z_STRVAL_P(path), pathargs, copy TSRMLS_CC);
+        normalize_path(Z_STRVAL_PP(tmp), &path TSRMLS_CC);
+        parse_path(Z_STRVAL_P(path), Z_ARRVAL(pathargs), route TSRMLS_CC);
     } else {
         throw_exception(rest_route_exception, 
                         "Invalid route, please specify path string using #path key", 
@@ -354,17 +356,21 @@ static void add_route(zval *this_ptr, zval *route TSRMLS_DC)
     }
     
     smart_str_appends(&uri, "~^");
-    rest_url_append_uri(Z_STRVAL_P(path), pathargs, &uri, 0 TSRMLS_CC);
+    rest_url_append_uri(Z_STRVAL_P(path), Z_ARRVAL(pathargs), &uri, 0 TSRMLS_CC);
     smart_str_appends(&uri, "$~");
+    zval_ptr_dtor(&path);
     
     smart_str_0(&uri);
-    add_assoc_stringl(copy, "#expr", uri.c, uri.len, 1);
+    add_assoc_stringl(route, "#expr", uri.c, uri.len, 1);
     smart_str_free(&uri);
     
     PROP(this_ptr, "routes", routes);
-    HTVAL(Z_ARRVAL_P(copy), "#name", name);
-
-    zend_hash_update(Z_ARRVAL_PP(routes), Z_STRVAL_PP(name), Z_STRLEN_PP(name) + 1, &copy, sizeof(zval*), NULL);
+    HTVAL(Z_ARRVAL_P(route), "#name", name);
+    
+	zval_add_ref(&route);
+    zend_hash_update(Z_ARRVAL_PP(routes), Z_STRVAL_PP(name), Z_STRLEN_PP(name) + 1, &route, sizeof(zval*), NULL);
+    
+	zval_dtor(&pathargs);
 }
 
 static void resolve_request_method(char **method TSRMLS_DC)
@@ -374,20 +380,21 @@ static void resolve_request_method(char **method TSRMLS_DC)
     zval **overriden;
     smart_str resolved = {0};
     
-    HTVAL(EG(active_symbol_table), "_SERVER", server);
-    ARRVAL_PP(server, "REQUEST_METHOD", req_method);
+	smart_str_appends(&resolved, "#");
     
-    smart_str_appends(&resolved, "#");
-    
-    if (IS_POST(Z_STRVAL_PP(req_method))) {
-        if (GET_ARRVAL(server, "HTTP_X_HTTP_METHOD_OVERRIDE", overriden)) {
-            smart_str_appendl(&resolved, Z_STRVAL_PP(overriden), Z_STRLEN_PP(overriden));
-        }
+    if (HTVAL(EG(active_symbol_table), "_SERVER", server) && ARRVAL_PP(server, "REQUEST_METHOD", req_method)) {
+	    if (IS_POST(Z_STRVAL_PP(req_method))) {
+	        if (GET_ARRVAL(server, "HTTP_X_HTTP_METHOD_OVERRIDE", overriden)) {
+	            smart_str_appendl(&resolved, Z_STRVAL_PP(overriden), Z_STRLEN_PP(overriden));
+	        }
+	    } else {
+	        smart_str_appendl(&resolved, Z_STRVAL_PP(req_method), Z_STRLEN_PP(req_method));
+	    }
     } else {
-        smart_str_appendl(&resolved, Z_STRVAL_PP(req_method), Z_STRLEN_PP(req_method));
-    }
+		smart_str_appends(&resolved, "get");
+	}
     
-    smart_str_0(&resolved);
+	smart_str_0(&resolved);
     
     *method = estrdup(resolved.c);
     php_strtolower(*method, resolved.len);
@@ -410,7 +417,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     ulong          idx;
     int            type;
     char          *key;
-
+    
     MAKE_STD_ZVAL(delim);
     ZVAL_STRINGL(delim, "/", 1, 1);
     
@@ -438,11 +445,13 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
                     zval_add_ref(token);
                     zend_hash_next_index_insert(Z_ARRVAL_P(copy), token, sizeof(zval *), NULL);
                     zend_hash_move_forward_ex(Z_ARRVAL_P(tokens), &pos1);
-                }                
+                }
+				
+				zval_ptr_dtor(&tokens);
             } else {
                 COPY_PZVAL_TO_ZVAL(*copy, *value);
             }
-
+            
             add_assoc_zval(args, key, copy);
         }
     }
@@ -462,6 +471,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     }
     
     zval_ptr_dtor(fnargs[0]);
+	zval_ptr_dtor(&delim);
 }
 
 static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
@@ -514,7 +524,7 @@ static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
                     zval_add_ref(&ret_val);
                     zend_hash_update(Z_ARRVAL_P(matches), key, strlen(key) + 1, &ret_val, sizeof(zval *), NULL);
                 }
-
+                
                 zval_ptr_dtor(&ret_val);
             }
         }
@@ -523,7 +533,7 @@ static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
     return 1;
 }
 
-static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len)
+static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len TSRMLS_DC)
 {
     pcre_cache_entry  *pce;
     HashPosition       pos;
@@ -536,7 +546,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
     zval              *result;
     char              *method;
     int                found = 0;
-    
+	
     resolve_request_method(&method TSRMLS_CC);
     PROP(this_ptr, "routes", routes);
     
@@ -575,6 +585,9 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     
                     found = 1;
                 }
+                
+				zval_ptr_dtor(&result);
+				zval_ptr_dtor(&matches);
             }
         }
     }
@@ -627,7 +640,7 @@ static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method)
     } else {
         ZEND_SET_SYMBOL(EG(active_symbol_table), "_GET", data);
     }
-
+    
     invoke_route_callback(*callback, route_params, &ret_val TSRMLS_CC);
     
     if (return_value_used) {

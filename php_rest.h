@@ -8,6 +8,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "php_globals.h"
+#include "zend.h"
 #include "zend_API.h"
 #include "zend_exceptions.h"
 
