@@ -475,7 +475,6 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     }
     
     zval_ptr_dtor(fnargs[0]);
-    zval_ptr_dtor(&delim);
 }
 
 static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
@@ -528,8 +527,6 @@ static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
                     zval_add_ref(&ret_val);
                     zend_hash_update(Z_ARRVAL_P(matches), key, strlen(key) + 1, &ret_val, sizeof(zval *), NULL);
                 }
-                
-                zval_ptr_dtor(&ret_val);
             }
         }
     }
@@ -589,9 +586,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     
                     found = 1;
                 }
-                
-                zval_ptr_dtor(&result);
-                zval_ptr_dtor(&matches);
             }
         }
     }
