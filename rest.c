@@ -52,6 +52,7 @@ PHP_MINFO_FUNCTION(rest)
 
 zend_class_entry *rest_route_exception;
 zend_class_entry *rest_unsupported_method_exception;
+zend_class_entry *rest_invalid_filter_exception;
 zend_class_entry *restresponse_class_entry;
 zend_class_entry *restclient_class_entry;
 
@@ -86,13 +87,18 @@ static function_entry restclient_class_functions[] = {
 
 REST_ARGINFO
 ZEND_BEGIN_ARG_INFO_EX(rest_add_route_arginfo, 0, 1, 0)
-ZEND_ARG_ARRAY_INFO(0, "route", 0)
+    ZEND_ARG_ARRAY_INFO(0, "route", 0)
 ZEND_END_ARG_INFO ()
 
 REST_ARGINFO
 ZEND_BEGIN_ARG_INFO_EX(rest_add_named_route_arginfo, 0, 2, 0)
-ZEND_ARG_INFO(0, "name")
-ZEND_ARG_ARRAY_INFO(0, "route", 0)
+    ZEND_ARG_INFO(0, "name")
+    ZEND_ARG_ARRAY_INFO(0, "route", 0)
+ZEND_END_ARG_INFO ()
+
+REST_ARGINFO
+ZEND_BEGIN_ARG_INFO_EX(rest_add_filter_arginfo, 0, 1, 0)
+    ZEND_ARG_INFO(0, "filter")
 ZEND_END_ARG_INFO ()
 
 zend_class_entry *restserver_class_entry;
@@ -101,6 +107,7 @@ static function_entry restserver_class_functions[] = {
     ZEND_ME(RestServer,      __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
     ZEND_ME(RestServer,         addRoute, rest_add_route_arginfo, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer,    addNamedRoute, rest_add_named_route_arginfo, ZEND_ACC_PUBLIC)
+    ZEND_ME(RestServer,        addFilter, rest_add_filter_arginfo, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer,           handle, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleRequestUri, NULL, ZEND_ACC_PUBLIC)
     ZEND_ME(RestServer, handleQueryParam, NULL, ZEND_ACC_PUBLIC)
@@ -138,6 +145,12 @@ PHP_MINIT_FUNCTION(rest)
     rest_unsupported_method_exception = zend_register_internal_class_ex(&unsupported_method_exception_ce, 
                                                                         (zend_class_entry *) zend_exception_get_default(TSRMLS_C), 
                                                                         NULL TSRMLS_CC);
+    
+    zend_class_entry invalid_filter_exception_ce;
+    INIT_CLASS_ENTRY(invalid_filter_exception_ce, "RestInvalidFilterException", NULL);    
+    rest_invalid_filter_exception = zend_register_internal_class_ex(&invalid_filter_exception_ce, 
+                                                                    (zend_class_entry *) zend_exception_get_default(TSRMLS_C), 
+                                                                    NULL TSRMLS_CC);
     
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_HEAD",       METHOD_HEAD, CONST_CS | CONST_PERSISTENT);
     REGISTER_STRING_CONSTANT("REST_HTTP_METHOD_OPTIONS", METHOD_OPTIONS, CONST_CS | CONST_PERSISTENT);

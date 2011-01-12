@@ -28,6 +28,7 @@ extern void rest_url_append_uri(char *uri, HashTable *args, smart_str *url, zend
 
 extern zend_class_entry *rest_route_exception;
 extern zend_class_entry *rest_unsupported_method_exception;
+extern zend_class_entry *rest_invalid_filter_exception;
 extern zend_class_entry *restresponse_class_entry;
 
 #ifdef PHP_WIN32
@@ -86,6 +87,7 @@ PHP_METHOD(RestClient, delete);
 PHP_METHOD(RestServer, __construct);
 PHP_METHOD(RestServer, addRoute);
 PHP_METHOD(RestServer, addNamedRoute);
+PHP_METHOD(RestServer, addFilter);
 PHP_METHOD(RestServer, handle);
 PHP_METHOD(RestServer, handleRequestUri);
 PHP_METHOD(RestServer, handleQueryParam);

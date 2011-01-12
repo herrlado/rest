@@ -37,6 +37,7 @@ REST_SERVER_METHOD(__construct)
     zval_ptr_dtor(&endpoint);
     
     add_property_null(this_ptr, "routes");
+    add_property_null(this_ptr, "filters");
 }
 
 REST_SERVER_METHOD(addRoute) 
@@ -64,6 +65,55 @@ REST_SERVER_METHOD(addNamedRoute)
     
     add_assoc_stringl(route, "#name", name, name_len, 1);
     add_route(this_ptr, route TSRMLS_CC);
+    
+    RETURN_THIS();
+}
+
+REST_SERVER_METHOD(addFilter) 
+{
+    zval **filters;
+    zval  *filter;
+    zval  *callback;
+    char  *callback_name;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &filter) != SUCCESS) {
+        RETURN_FALSE;
+    }
+    
+    if (!zend_is_callable(filter, 0, &callback_name TSRMLS_CC)) {
+        if (callback_name) {
+            efree(callback_name);
+        }
+        
+        zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception(TSRMLS_C);
+        zval             *exception;
+        
+        MAKE_STD_ZVAL(exception);
+        object_init_ex(exception, rest_invalid_filter_exception);
+        
+        zend_update_property_string(parent, exception, "message", sizeof("message") - 1, 
+                                    "Invalid callback!" TSRMLS_CC);
+        zend_update_property(parent, exception, "filter", sizeof("filter") - 1, filter TSRMLS_CC);
+        zend_throw_exception_object(exception TSRMLS_CC);
+        
+        return;
+    }
+    
+    if (callback_name) {
+        efree(callback_name);
+    }
+    
+    PROP(this_ptr, "filters", filters);
+    
+    if (Z_TYPE_PP(filters) == IS_NULL) {
+        array_init(*filters);
+    }
+    
+    MAKE_STD_ZVAL(callback);
+    *callback = *filter;
+    zval_copy_ctor(callback);
+    
+    add_next_index_zval(*filters, callback);
     
     RETURN_THIS();
 }
