@@ -75,7 +75,7 @@ REST_SERVER_METHOD(addFilter)
     zval  *filter;
     zval  *callback;
     char  *callback_name;
-
+    
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &filter) != SUCCESS) {
         RETURN_FALSE;
     }
@@ -255,7 +255,7 @@ static void normalize_path(char *input, zval **path TSRMLS_DC)
     smart_str_0(&result);
     
     MAKE_STD_ZVAL(*path);
-    ZVAL_STRING(*path, result.c, 1);
+    ZVAL_STRINGL(*path, result.c, result.len, 1);
     
     smart_str_free(&result);
 }
@@ -456,15 +456,31 @@ static void resolve_request_method(char **method TSRMLS_DC)
     smart_str_free(&resolved);
 }
 
+static inline int _call_user_func(zval *callback, zval ***args, int arg_count, zval **ret_val TSRMLS_DC)
+{
+    zval **object;
+    zval **method;
+    int    status;
+    
+    if (Z_TYPE_P(callback) == IS_STRING) {
+        status = call_user_function_ex(EG(function_table), NULL, callback, ret_val, 1, args, 0, NULL TSRMLS_CC);
+    } else if (Z_TYPE_P(callback) == IS_ARRAY) {
+        zend_hash_index_find(Z_ARRVAL_P(callback), 0, (void **) &object);
+        zend_hash_index_find(Z_ARRVAL_P(callback), 1, (void **) &method);
+        
+        status = call_user_function_ex(EG(function_table), object, *method, ret_val, 1, args, 0, NULL TSRMLS_CC);
+    }
+    
+    return status;
+}
+
 static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC)
 {
     HashPosition   pos;
-    HashPosition   pos1;
-    zval          *delim;
+    zval           delim;
     zval          *args;
     zval          *copy;
     zval          *tokens;
-    zval         **token;
     zval         **value;
     zval         **fnargs[1];
     uint           keylen;
@@ -472,8 +488,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     int            type;
     char          *key;
     
-    MAKE_STD_ZVAL(delim);
-    ZVAL_STRINGL(delim, "/", 1, 1);
+    ZVAL_STRING(&delim, "/", 1);
     
     MAKE_STD_ZVAL(args);
     array_init(args);
@@ -491,15 +506,11 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
                 MAKE_STD_ZVAL(tokens);
                 array_init(tokens);
                 array_init(copy);
-                php_explode(delim, *value, tokens, 100);
+                
+                php_explode(&delim, *value, tokens, 100);
                 zend_hash_index_del(Z_ARRVAL_P(tokens), 0);
                 
-                zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(tokens), &pos1);
-                while (zend_hash_get_current_data_ex(Z_ARRVAL_P(tokens), (void **)&token, &pos1) == SUCCESS) {
-                    zval_add_ref(token);
-                    zend_hash_next_index_insert(Z_ARRVAL_P(copy), token, sizeof(zval *), NULL);
-                    zend_hash_move_forward_ex(Z_ARRVAL_P(tokens), &pos1);
-                }
+                php_array_merge(Z_ARRVAL_P(copy), Z_ARRVAL_P(tokens), 0 TSRMLS_CC);
                 
                 zval_ptr_dtor(&tokens);
             } else {
@@ -512,19 +523,10 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     
     fnargs[0] = &args;
     
-    if (Z_TYPE_P(callback) == IS_STRING) {
-        call_user_function_ex(EG(function_table), NULL, callback, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
-    } else if (Z_TYPE_P(callback) == IS_ARRAY) {
-        zval **object;
-        zval **method;
-        
-        zend_hash_index_find(Z_ARRVAL_P(callback), 0, (void **) &object);
-        zend_hash_index_find(Z_ARRVAL_P(callback), 1, (void **) &method);
-        
-        call_user_function_ex(EG(function_table), object, *method, ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
-    }
+    _call_user_func(callback, fnargs, 1, ret_val TSRMLS_CC);
     
     zval_ptr_dtor(fnargs[0]);
+    zval_dtor(&delim);
 }
 
 static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
@@ -550,17 +552,7 @@ static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
                 HTVAL(Z_ARRVAL_P(matches), key, tmp);
                 fnargs[0] = tmp;
                 
-                if (Z_TYPE_PP(callback) == IS_STRING) {
-                    call_user_function_ex(EG(function_table), NULL, *callback, &ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
-                } else if (Z_TYPE_PP(callback) == IS_ARRAY) {
-                    zval **object;
-                    zval **method;
-                    
-                    zend_hash_index_find(Z_ARRVAL_PP(callback), 0, (void **) &object);
-                    zend_hash_index_find(Z_ARRVAL_PP(callback), 1, (void **) &method);
-                    
-                    call_user_function_ex(EG(function_table), object, *method, &ret_val, 1, fnargs, 0, NULL TSRMLS_CC);
-                }
+                _call_user_func(*callback, fnargs, 1, &ret_val TSRMLS_CC);
                 
                 zval_ptr_dtor(fnargs[0]);
                 
@@ -593,8 +585,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
     zval             **route;
     zval             **expr;
     zval             **callback;
-    zval              *matches;
-    zval              *result;
     char              *method;
     int                found = 0;
     
@@ -609,6 +599,9 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
             ARRVAL_PP(route, "#expr", expr);
             
             if ((pce = pcre_get_compiled_regex_cache(Z_STRVAL_PP(expr), Z_STRLEN_PP(expr) TSRMLS_CC)) != NULL) {
+                zval *matches;
+                zval *result;
+                
                 MAKE_STD_ZVAL(result);
                 MAKE_STD_ZVAL(matches);
                 array_init(matches);
@@ -623,8 +616,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                             if (return_value_used) {
                                 COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
                             }
-                            
-                            zval_ptr_dtor(&ret_val);
                         }
                     } else {
                         throw_exception_ex(rest_unsupported_method_exception, 
@@ -635,7 +626,12 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     }
                     
                     found = 1;
+                    
+                    zval_ptr_dtor(&ret_val);
                 }
+                
+                zval_ptr_dtor(&result);
+                //zval_ptr_dtor(&matches);
             }
         }
     }
