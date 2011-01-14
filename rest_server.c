@@ -474,13 +474,14 @@ static inline int _call_user_func(zval *callback, zval ***args, int arg_count, z
     return status;
 }
 
-static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val TSRMLS_DC)
+static void invoke_route_callback(zval *callback, zval *input, zval **ret_val TSRMLS_DC)
 {
     HashPosition   pos;
     zval           delim;
     zval          *args;
     zval          *copy;
     zval          *tokens;
+    zval          *matches;
     zval         **value;
     zval         **fnargs[1];
     uint           keylen;
@@ -489,6 +490,10 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     char          *key;
     
     ZVAL_STRING(&delim, "/", 1);
+    
+    MAKE_STD_ZVAL(matches);
+    *matches = *input;
+    zval_copy_ctor(matches);
     
     MAKE_STD_ZVAL(args);
     array_init(args);
@@ -526,6 +531,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     
     _call_user_func(callback, fnargs, 1, ret_val TSRMLS_CC);
     
+    zval_ptr_dtor(&matches);
     zval_ptr_dtor(fnargs[0]);
     zval_dtor(&delim);
 }
@@ -630,7 +636,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                 }
                 
                 zval_ptr_dtor(&result);
-                //zval_ptr_dtor(&matches);
+                zval_ptr_dtor(&matches);
             }
         }
     }
