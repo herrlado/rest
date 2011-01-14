@@ -513,6 +513,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
                 php_array_merge(Z_ARRVAL_P(copy), Z_ARRVAL_P(tokens), 0 TSRMLS_CC);
                 
                 zval_ptr_dtor(&tokens);
+                SEPARATE_ZVAL(&copy);
             } else {
                 COPY_PZVAL_TO_ZVAL(*copy, *value);
             }
@@ -547,7 +548,7 @@ static zend_bool normalize_matches(zval *route, zval *matches TSRMLS_DC) {
                 uint key_len;
                 ulong num_index;
                 
-                zend_hash_get_current_key_ex(Z_ARRVAL_PP(handlers), &key, &key_len, &num_index, 1, &pos);
+                zend_hash_get_current_key_ex(Z_ARRVAL_PP(handlers), &key, &key_len, &num_index, 0, &pos);
                 
                 HTVAL(Z_ARRVAL_P(matches), key, tmp);
                 fnargs[0] = tmp;
@@ -604,7 +605,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                 
                 MAKE_STD_ZVAL(result);
                 MAKE_STD_ZVAL(matches);
-                array_init(matches);
                 
                 php_pcre_match_impl(pce, path, path_len, result, matches, 0, 1, 0, 0 TSRMLS_CC);
                 
@@ -626,7 +626,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     }
                     
                     found = 1;
-                    
                     zval_ptr_dtor(&ret_val);
                 }
                 
