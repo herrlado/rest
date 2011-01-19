@@ -18,7 +18,6 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
 static void handle(zval *this_ptr, zval *return_value, int return_value_used, char *path, int path_len TSRMLS_DC);
 static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method);
 static zend_bool validate_and_normalize_matches(zval *route, zval *matches TSRMLS_DC);
-int (*zend_vspprintf)(char **pbuf, size_t max_len, const char *format, va_list ap);
 
 static char *user_callback_keys[] = {"#get", "#post", "#put", "#delete"};
 
@@ -222,7 +221,7 @@ static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, ch
     char             *message;
     
     va_start(arg, format);
-    zend_vspprintf(&message, 0, format, arg);
+    vspprintf(&message, 0, format, arg);
     va_end(arg);
     
     MAKE_STD_ZVAL(exception);
@@ -512,7 +511,14 @@ static zend_bool validate_and_normalize_matches(zval *route, zval *matches TSRML
                 
                 if (_call_user_func(*callback, fnargs, 1, &ret_val TSRMLS_CC) == SUCCESS) {
                     if (Z_TYPE_P(ret_val) == IS_BOOL && !Z_BVAL_P(ret_val)) {
-                        throw_exception(rest_route_exception, "Validation error for token '%s'", route TSRMLS_CC);
+                        efree(fnargs);
+                        zval_dtor(&delim);
+                        zval_ptr_dtor(&ret_val);
+                        
+                        throw_exception_ex(rest_route_exception, 
+                                           route TSRMLS_CC,
+                                           "Validation error for token '%s'",
+                                           key);
                         return 0;
                     } else {
                         SEPARATE_ZVAL(&ret_val);
@@ -585,6 +591,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
     zval              *args;
     char              *method;
     int                found = 0;
+    zend_bool          filtered = 0;
     
     resolve_request_method(&method TSRMLS_CC);
     PROP(this_ptr, "routes", routes);
@@ -612,23 +619,23 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                         INIT_PZVAL(args);
                         
                         if (zend_hash_num_elements(Z_ARRVAL_P(matches)) > 0) {
-                            if (!validate_and_normalize_matches(*route, matches TSRMLS_CC)) {
-                                return;
-                            }
-                            
-                            zend_hash_merge_ex(Z_ARRVAL_P(args), Z_ARRVAL_P(matches), 
-                                               (copy_ctor_func_t) zval_add_ref, sizeof(zval*), 
-                                               (merge_checker_func_t) is_match_key_assoc, NULL);
-                            
-                            if (!apply_filters(this_ptr, *route, args TSRMLS_CC)) {
-                                return;
+                            if (validate_and_normalize_matches(*route, matches TSRMLS_CC)) {
+                                zend_hash_merge_ex(Z_ARRVAL_P(args), Z_ARRVAL_P(matches), 
+                                                   (copy_ctor_func_t) zval_add_ref, sizeof(zval*), 
+                                                   (merge_checker_func_t) is_match_key_assoc, NULL);
+                                
+                                filtered = apply_filters(this_ptr, *route, args TSRMLS_CC);
                             }
                         }
                         
-                        invoke_route_callback(*callback, args, &ret_val TSRMLS_CC);
-                        
-                        if (return_value_used) {
-                            COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                        if (filtered) {
+                            invoke_route_callback(*callback, args, &ret_val TSRMLS_CC);
+                            
+                            if (return_value_used) {
+                                COPY_PZVAL_TO_ZVAL(*return_value, ret_val);
+                            }
+                            
+                            zval_ptr_dtor(&ret_val);
                         }
                         
                         zval_ptr_dtor(&args);
@@ -641,7 +648,6 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                     }
                     
                     found = 1;
-                    zval_ptr_dtor(&ret_val);
                 }
                 
                 zval_ptr_dtor(&result);
