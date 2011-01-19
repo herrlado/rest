@@ -560,8 +560,8 @@ static zend_bool apply_filters(zval *this_ptr, zval *route, zval *matches TSRMLS
                 if (ret_val != NULL && Z_TYPE_P(ret_val) == IS_ARRAY) {
                     SEPARATE_ZVAL(&ret_val);
                     REPLACE_ZVAL_VALUE(&matches, ret_val, 1);
-                    zval_ptr_dtor(&ret_val);
                 }
+                zval_ptr_dtor(&ret_val);
             } else {
                 
             }
