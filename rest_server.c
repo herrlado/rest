@@ -8,7 +8,7 @@
 #include "php_rest.h"
 
 static void throw_exception(zend_class_entry *base, char *message, zval *route TSRMLS_DC);
-static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...);
+static void throw_exception_ex(zend_class_entry *base, char *property, zval *value TSRMLS_DC, char *format, ...);
 static void normalize_path(char *input, zval **path TSRMLS_DC);
 static char *normalize_token(char *key, char *value);
 static void parse_path(char *path, HashTable *pathargs, zval *route TSRMLS_DC);
@@ -78,37 +78,24 @@ REST_SERVER_METHOD(addFilter)
         RETURN_FALSE;
     }
     
-    if (!zend_is_callable(filter, 0, &callback_name TSRMLS_CC)) {
-        if (callback_name) {
-            efree(callback_name);
+    if (zend_is_callable(filter, 0, &callback_name TSRMLS_CC)) {
+        PROP(this_ptr, "filters", filters);
+        
+        if (Z_TYPE_PP(filters) == IS_NULL) {
+            array_init(*filters);
         }
         
-        zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception(TSRMLS_C);
-        zval             *exception;
-        
-        MAKE_STD_ZVAL(exception);
-        object_init_ex(exception, rest_invalid_filter_exception);
-        
-        zend_update_property_string(parent, exception, "message", sizeof("message") - 1, 
-                                    "Invalid callback!" TSRMLS_CC);
-        zend_update_property(parent, exception, "filter", sizeof("filter") - 1, filter TSRMLS_CC);
-        zend_throw_exception_object(exception TSRMLS_CC);
-        
-        return;
+        zval_add_ref(&filter);
+        add_next_index_zval(*filters, filter);
+    } else {
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid filter callback %s()", callback_name);
     }
     
     if (callback_name) {
         efree(callback_name);
     }
     
-    PROP(this_ptr, "filters", filters);
     
-    if (Z_TYPE_PP(filters) == IS_NULL) {
-        array_init(*filters);
-    }
-    
-    zval_add_ref(&filter);
-    add_next_index_zval(*filters, filter);
     
     RETURN_THIS();
 }
@@ -213,7 +200,7 @@ static void throw_exception(zend_class_entry *base, char *message, zval *route T
     zend_throw_exception_object(exception TSRMLS_CC);
 }
 
-static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, char *format, ...)
+static void throw_exception_ex(zend_class_entry *base, char *property, zval *value TSRMLS_DC, char *format, ...)
 {
     zend_class_entry *parent = (zend_class_entry *) zend_get_error_exception(TSRMLS_C);
     zval             *exception;
@@ -230,8 +217,8 @@ static void throw_exception_ex(zend_class_entry *base, zval *route TSRMLS_DC, ch
     zend_update_property_string(parent, exception, "message", sizeof("message") - 1, message TSRMLS_CC);
     efree(message);
     
-    if (route != NULL) {
-        zend_update_property(parent, exception, "route", sizeof("route") - 1, route TSRMLS_CC);
+    if (property && value != NULL) {
+        zend_update_property(parent, exception, property, strlen(property) + 1, value TSRMLS_CC);
     }
     
     zend_throw_exception_object(exception TSRMLS_CC);
@@ -516,7 +503,7 @@ static zend_bool validate_and_normalize_matches(zval *route, zval *matches TSRML
                         zval_ptr_dtor(&ret_val);
                         
                         throw_exception_ex(rest_route_exception, 
-                                           route TSRMLS_CC,
+                                           "route", route TSRMLS_CC,
                                            "Validation error for token '%s'",
                                            key);
                         return 0;
@@ -557,10 +544,21 @@ static zend_bool apply_filters(zval *this_ptr, zval *route, zval *matches TSRMLS
             fnargs[1] = &matches;
             
             if (_call_user_func(*callback, fnargs, 2, &ret_val TSRMLS_CC) == SUCCESS) {
-                if (ret_val != NULL && Z_TYPE_P(ret_val) == IS_ARRAY) {
+                if (Z_TYPE_P(ret_val) == IS_ARRAY) {
                     SEPARATE_ZVAL(&ret_val);
                     REPLACE_ZVAL_VALUE(&matches, ret_val, 1);
+                } else {
+                    zval_ptr_dtor(&ret_val);
+                    efree(fnargs);
+                    
+                    throw_exception_ex(rest_invalid_filter_exception, 
+                                       "input", matches TSRMLS_CC,
+                                       "Input validation error in %s()",
+                                       Z_STRVAL_PP(callback));
+                    
+                    return 0;
                 }
+                
                 zval_ptr_dtor(&ret_val);
             } else {
                 php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s()", Z_STRVAL_PP(callback));
@@ -641,7 +639,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                         zval_ptr_dtor(&args);
                     } else {
                         throw_exception_ex(rest_unsupported_method_exception, 
-                                           *route TSRMLS_CC,
+                                           "route", *route TSRMLS_CC,
                                            "There is no callback bound to specified HTTP method %s",
                                            method);
                         return;
@@ -680,7 +678,7 @@ static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method)
     
     if (!(GET_ARRVAL(routes, route_name, route))) {
         throw_exception_ex(rest_route_exception, 
-                           NULL TSRMLS_CC,
+                           NULL, NULL TSRMLS_CC,
                            "There is no route with specified name %s",
                            route_name);
         return;
@@ -688,7 +686,7 @@ static void handle_internal(INTERNAL_FUNCTION_PARAMETERS, char *method)
     
     if (!(GET_ARRVAL(route, method, callback))) {
         throw_exception_ex(rest_unsupported_method_exception, 
-                           *route TSRMLS_CC,
+                           "route", *route TSRMLS_CC,
                            "There is no callback bound to specified HTTP method %s",
                            method);
         return;
