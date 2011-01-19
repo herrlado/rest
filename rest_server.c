@@ -464,7 +464,7 @@ static void invoke_route_callback(zval *callback, zval *matches, zval **ret_val 
     fnargs[0] = &matches;
     
     if (_call_user_func(callback, fnargs, 1, ret_val TSRMLS_CC) == FAILURE) {
-        
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s()", Z_STRVAL_P(callback));
     }
     
     efree(fnargs);
@@ -525,7 +525,7 @@ static zend_bool validate_and_normalize_matches(zval *route, zval *matches TSRML
                         add_assoc_zval(matches, key, ret_val);
                     }
                 } else {
-                    
+                    php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s()", Z_STRVAL_PP(callback));
                 }
                 
                 efree(fnargs);
@@ -563,7 +563,7 @@ static zend_bool apply_filters(zval *this_ptr, zval *route, zval *matches TSRMLS
                 }
                 zval_ptr_dtor(&ret_val);
             } else {
-                
+                php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s()", Z_STRVAL_PP(callback));
             }
             
             zend_hash_move_forward(Z_ARRVAL_PP(filters));
