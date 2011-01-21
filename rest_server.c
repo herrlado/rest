@@ -57,7 +57,7 @@ REST_SERVER_METHOD(addNamedRoute)
     zval *route;
     char *name;
     int   name_len;
-    
+
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa/", &name, &name_len, &route) != SUCCESS) {
         RETURN_FALSE;
     }
@@ -590,7 +590,7 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
     char              *method;
     int                found = 0;
     zend_bool          filtered = 0;
-    
+
     resolve_request_method(&method TSRMLS_CC);
     PROP(this_ptr, "routes", routes);
     
@@ -605,17 +605,16 @@ static void handle(zval *this_ptr, zval *return_value, int return_value_used, ch
                 zval *matches;
                 zval *result;
                 
-                MAKE_STD_ZVAL(result);
-                MAKE_STD_ZVAL(matches);
+                ALLOC_INIT_ZVAL(result);
+                ALLOC_INIT_ZVAL(matches);
                 
                 php_pcre_match_impl(pce, path, path_len, result, matches, 0, 1, 0, 0 TSRMLS_CC);
-                
+
                 if (Z_LVAL_P(result) > 0) {        
                     if (GET_ARRVAL(route, method, callback)) {
                         MAKE_STD_ZVAL(args);
                         array_init(args);
-                        INIT_PZVAL(args);
-                        
+
                         if (zend_hash_num_elements(Z_ARRVAL_P(matches)) > 0) {
                             if (validate_and_normalize_matches(*route, matches TSRMLS_CC)) {
                                 zend_hash_merge_ex(Z_ARRVAL_P(args), Z_ARRVAL_P(matches), 
